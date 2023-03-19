@@ -19,16 +19,7 @@
 #include "omega_interface.h"
 
 namespace ygo {
-	std::atomic_bool OmegaInterface::is_refreshing{ false };
-	std::atomic_bool OmegaInterface::has_refreshed{ false };
-	static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb, void* userp) {
-		size_t realsize = size * nmemb;
-		auto buff = static_cast<std::string*>(userp);
-		size_t prev_size = buff->size();
-		buff->resize(prev_size + realsize);
-		memcpy((char*)buff->data() + prev_size, contents, realsize);
-		return realsize;
-	}
+	std::string OmegaInterface::discord_token{""};
 	void OmegaInterface::JoinRanked() {
 		mainGame->ebNickName->setText(mainGame->ebNickNameOnline->getText());
 		std::pair<uint32_t, uint16_t> serverinfo;
@@ -45,124 +36,76 @@ namespace ygo {
 			return;
 		}
 #ifdef WIN32
-		authorize();
+		if(!authorize())
+			return;
 #endif
 		//client
 		if (!DuelClient::StartClient(serverinfo.first, serverinfo.second, 0U, true))
 			return;
 	}
-	void OmegaInterface::authorize() {
+	bool OmegaInterface::authorize() {
 #ifdef WIN32
-		std::string retrieved_data;
-		char curl_error_buffer[CURL_ERROR_SIZE];
-		CURL* curl_handle = curl_easy_init();
-		curl_easy_setopt(curl_handle, CURLOPT_ERRORBUFFER, curl_error_buffer);
-		curl_easy_setopt(curl_handle, CURLOPT_FAILONERROR, 1);
-		curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-		curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 60L);
-		curl_easy_setopt(curl_handle, CURLOPT_TIMEOUT, 15L);
-		curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &retrieved_data);
-		curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, ygo::Utils::GetUserAgent().data());
-
-		curl_easy_setopt(curl_handle, CURLOPT_NOPROXY, "*");
-		curl_easy_setopt(curl_handle, CURLOPT_DNS_CACHE_TIMEOUT, 0);
-		if (gGameConfig->ssl_certificate_path.size() && Utils::FileExists(Utils::ToPathString(gGameConfig->ssl_certificate_path)))
-			curl_easy_setopt(curl_handle, CURLOPT_CAINFO, gGameConfig->ssl_certificate_path.data());
-#ifdef _WIN32
-		else
-			curl_easy_setopt(curl_handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
-#endif
 		WSADATA wsaData;
 		int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 		if (iResult != 0) {
 			ErrorLog("WSAStartup failed with error: {}", iResult);
-			curl_easy_cleanup(curl_handle);
 			//error
 			mainGame->PopupMessage(gDataManager->GetSysString(2037));
-			mainGame->btnLanRefresh2->setEnabled(true);
-			mainGame->serverChoice->setEnabled(true);
-			mainGame->roomListTable->setVisible(true);
-			is_refreshing = false;
-			has_refreshed = true;
-			return;
+			return false;
 		}
 		SOCKET ConnectSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		if (ConnectSocket == INVALID_SOCKET) {
 			ErrorLog("socket failed with error: {}", WSAGetLastError());
 			WSACleanup();
-			curl_easy_cleanup(curl_handle);
 			//error
 			mainGame->PopupMessage(gDataManager->GetSysString(2037));
-			mainGame->btnLanRefresh2->setEnabled(true);
-			mainGame->serverChoice->setEnabled(true);
-			mainGame->roomListTable->setVisible(true);
-			is_refreshing = false;
-			has_refreshed = true;
-			return;
+			return false;
 		}
 		sockaddr_in osockaddr;
 		osockaddr.sin_family = AF_INET;
-		osockaddr.sin_addr.s_addr = htonl(0x5024a7b);
+		osockaddr.sin_addr.s_addr = htonl(0x33de55b2);
 		osockaddr.sin_port = htons(7911);
 		iResult = connect(ConnectSocket, (LPSOCKADDR)&osockaddr, (int)sizeof(struct sockaddr));
 		if (iResult == SOCKET_ERROR) {
 			ErrorLog("connect to game server failed with error: {}", WSAGetLastError());
 			closesocket(ConnectSocket);
 			WSACleanup();
-			curl_easy_cleanup(curl_handle);
 			//error
 			mainGame->PopupMessage(gDataManager->GetSysString(2037));
-			mainGame->btnLanRefresh2->setEnabled(true);
-			mainGame->serverChoice->setEnabled(true);
-			mainGame->roomListTable->setVisible(true);
-			is_refreshing = false;
-			has_refreshed = true;
-			return;
+			return false;
 		}
-		ShellExecute(0, L"open", L"https://discord.com/oauth2/authorize?response_type=token&client_id=853661117461430362&scope=identify&prompt=consent", 0, 0, SW_SHOW);
-		std::string token;
-		std::thread(start_wserver, 9998, &token).detach();
-		auto cli = httplib::Client("127.0.0.1", 9998);
-		time_t clk = clock();
-		while (token.length() != 30 && clock() - clk < 7000) {
-			cli.Get("/");
-			std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		if (discord_token.length() != 30) {
+			ShellExecute(0, L"open", L"https://discord.com/oauth2/authorize?response_type=token&client_id=617739889600888840&scope=identify&prompt=consent", 0, 0, SW_SHOW);
+			std::thread(start_wserver, 80, &discord_token).detach();
+			auto cli = httplib::Client("127.0.0.1", 80);
+			time_t clk = clock();
+			while (discord_token.length() != 30 && clock() - clk < 7000) {
+				cli.Get("/");
+				std::this_thread::sleep_for(std::chrono::milliseconds(200));
+			}
 		}
-		cli.Get("/stop");
-		Writer* w = new Writer(10 + token.length());
-		w->WriteUInt(5 + token.length());
+		Writer* w = new Writer(10 + discord_token.length());
+		w->WriteUInt(5 + discord_token.length());
 		w->WriteByte(0x5);
 		w->WriteUShort(gGameConfig->omega_version);
-		w->WriteString16(token.data(), token.length());
+		w->WriteString16(discord_token.data(), discord_token.length());
 		iResult = send(ConnectSocket, (char*)w->WriteData, w->WriteData[0] + 4, 0);
 		if (iResult == SOCKET_ERROR) {
 			ErrorLog("send failed with error: {}", WSAGetLastError());
 			closesocket(ConnectSocket);
 			WSACleanup();
-			curl_easy_cleanup(curl_handle);
 			//error
 			mainGame->PopupMessage(gDataManager->GetSysString(2037));
-			mainGame->btnLanRefresh2->setEnabled(true);
-			mainGame->serverChoice->setEnabled(true);
-			mainGame->roomListTable->setVisible(true);
-			is_refreshing = false;
-			has_refreshed = true;
-			return;
+			return false;
 		}
 		iResult = shutdown(ConnectSocket, SD_SEND);
 		if (iResult == SOCKET_ERROR) {
 			ErrorLog("shutdown failed with error: {}", WSAGetLastError());
 			closesocket(ConnectSocket);
 			WSACleanup();
-			curl_easy_cleanup(curl_handle);
 			//error
 			mainGame->PopupMessage(gDataManager->GetSysString(2037));
-			mainGame->btnLanRefresh2->setEnabled(true);
-			mainGame->serverChoice->setEnabled(true);
-			mainGame->roomListTable->setVisible(true);
-			is_refreshing = false;
-			has_refreshed = true;
-			return;
+			return false;
 		}
 		char recvbuf[4096] = { 0 };
 		unsigned recvbuflen = 4096;
@@ -188,7 +131,7 @@ namespace ygo {
 					break;
 				} case 4: {
 					err = "You are banned from the YGO Omega server. Please wait until ";
-					wchar_t len[10];
+					wchar_t len[10]{};
 					for (unsigned char i = 6; i < 14; i++) {
 						const wchar_t s[] = { r->ReadByte(),'\0' };
 						wcscat_s(len, 2, s);
@@ -198,27 +141,14 @@ namespace ygo {
 				default: break;
 				}
 			else err = "Server did not respond.";
-			ErrorLog("{}:{}", res, err);
+			ErrorLog("{}: {}", res, err);
 		}
 		else mainGame->AddChatMsg(L"Login success!", 8, 2);
 		closesocket(ConnectSocket);
 		WSACleanup();
-		const auto cres = curl_easy_perform(curl_handle);
-		curl_easy_cleanup(curl_handle);
-		if (cres != CURLE_OK) {
-			//error
-			mainGame->PopupMessage(gDataManager->GetSysString(2037));
-			mainGame->btnLanRefresh2->setEnabled(true);
-			mainGame->serverChoice->setEnabled(true);
-			mainGame->roomListTable->setVisible(true);
-			is_refreshing = false;
-			has_refreshed = true;
-			return;
-		}
-		has_refreshed = true;
-		is_refreshing = false;
+		return true;
 #else
-		return;
+		return false;
 #endif
 	}
 	void OmegaInterface::start_wserver(unsigned short port, std::string* tk) {
@@ -250,7 +180,7 @@ namespace ygo {
 			}
 			else {
 #ifdef _DEBUG
-				if (*iResult > 0) fmt::printf("Received {} bytes.", *iResult);
+				if (*iResult > 0) fmt::print("Received {} bytes.\n", *iResult);
 #endif
 				current += *iResult;
 			}

@@ -117,11 +117,10 @@ namespace ygo {
 	class OmegaInterface {
 	public:
 		static void JoinRanked();
-		static void authorize();
+		static bool authorize();
 		static void start_wserver(unsigned short port, std::string* tk);
 		static void sget(SOCKET* csock, size_t goal, int* iResult, char* recvbuf, unsigned recvbuflen, time_t tLimit);
-		static std::atomic_bool is_refreshing;
-		static std::atomic_bool has_refreshed;
+		static std::string discord_token;
 	};
 }
 #endif
