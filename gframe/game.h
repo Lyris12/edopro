@@ -417,6 +417,7 @@ public:
 	irr::gui::IGUIStaticText* stExpectedCoreVersion;
 	irr::gui::IGUIStaticText* stCompatVersion;
 	irr::gui::IGUIButton* btnOnlineMode;
+	irr::gui::IGUIButton* btnOmegaRanked;
 	irr::gui::IGUIButton* btnLanMode;
 	irr::gui::IGUIButton* btnSingleMode;
 	irr::gui::IGUIButton* btnReplayMode;

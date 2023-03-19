@@ -26,6 +26,7 @@
 #include <IGUITabControl.h>
 #include <IGUITable.h>
 #include <IGUIWindow.h>
+#include "omega_interface.h"
 
 namespace ygo {
 
@@ -637,6 +638,10 @@ bool MenuHandler::OnEvent(const irr::SEvent& event) {
 			}
 			case BUTTON_FILTER_RELAY: {
 				ServerLobby::FillOnlineRooms();
+				break;
+			}
+			case BUTTON_OMEGA_RANKED: {
+				OmegaInterface::JoinRanked();
 				break;
 			}
 			}

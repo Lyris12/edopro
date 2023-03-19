@@ -264,6 +264,8 @@ void Game::Initialize() {
 	btnOnlineMode = env->addButton(OFFSET(10, 30, 270, 60), wMainMenu, BUTTON_ONLINE_MULTIPLAYER, gDataManager->GetSysString(2042).data());
 	defaultStrings.emplace_back(btnOnlineMode, 2042);
 	offset += 35;
+	btnOmegaRanked = env->addButton(OFFSET(10, 30, 270, 60), wMainMenu, BUTTON_OMEGA_RANKED, L"Join Omega Ranked Queue");
+	offset += 35;
 	btnLanMode = env->addButton(OFFSET(10, 30, 270, 60), wMainMenu, BUTTON_LAN_MODE, gDataManager->GetSysString(1200).data());
 	defaultStrings.emplace_back(btnLanMode, 1200);
 	offset += 35;
@@ -3594,7 +3596,7 @@ void Game::OnResize() {
 		stAbout->setRelativePosition(irr::core::recti(10, 10, minwidth, minheight));
 	}
 	wRoomListPlaceholder->setRelativePosition(irr::core::recti(0, 0, window_size.Width, window_size.Height));
-	wMainMenu->setRelativePosition(ResizeWin(mainMenuLeftX, 200, mainMenuRightX, 450));
+	wMainMenu->setRelativePosition(ResizeWin(mainMenuLeftX, 200, mainMenuRightX, 485));
 	wBtnSettings->setRelativePosition(ResizeWin(0, 610, 30, 640));
 	SetCentered(wCommitsLog);
 	SetCentered(updateWindow, false);
